@@ -47,10 +47,33 @@ stnID<-
 dat<-
   weather_dl(station_ids=as.data.frame(stnID)[,1],interval="day",verbose=TRUE) 
 
-dat %>% 
-  
-  # format climate data (see below for more information)
-  select(stn=station_name,date,tmn=min_temp,tmx=max_temp,ppt=total_precip,year,month,day)
-  
+# Format and clean data
+X<-select(dat,stn=station_name,date,tmn=min_temp,tmx=max_temp,ppt=total_precip,year,month,day)
+x1<-by(INDICES=X$stn,function(x) cleanECData(x),data=X)
+x2<-dplyr::bind_rows(x1,.id="id")
+x2$stn_name=names(x1)[as.numeric(x2$id)]
 
+# some final formmating and assign to final variable
+climData<-
+  x2 %>% 
+  dplyr::select(1:4,ppt=ppt_filled,tmx=tmx_filled,tmn=tmn_filled,stn_name=stn_name) %>% 
+  left_join(select(stn,station_name,bgc=MAP_LABEL),by=c("stn_name"="station_name")) %>% 
+  left_join(select(filter(stations,interval=="day"),station_name,lat,lon,elev),by=c("stn_name"="station_name"))
+  mutate(date=lubridate::ymd(year,month,day)) %>% 
+    mutate(year=as.integer(year),
+          month=as.integer(month),
+          day=as.integer(day))
+  
+# save dataset 
+save(climData,file="data-raw/climDataCleaned.RData")
 
+# write csv for ClimateBC
+climData %>% 
+  group_by(stn_name) %>% 
+  summarise(ID1=first(stn_name),
+            ID2=first(bgc),
+            lat=first(lat),
+            long=first(lon),
+            el=first(elev)) %>% 
+  dplyr::select(-stn_name) %>% 
+  write.csv(file="data-raw/stnFile.csv",row.names = F)
