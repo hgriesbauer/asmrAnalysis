@@ -9,7 +9,31 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 # Load dataset
-load("../data/")
+load("../data/cmdASMR.RData")
 
 ```
 
+### Compare annual CMD to annual ASMR
+
+```{r}
+
+# Set station name of interest
+stnName="FORT ST JAMES"
+
+X<-
+  dat %>% 
+  filter(stn_name%in%stnName) %>% 
+  group_by(Year) %>% # group by year to create annual summaries
+  summarise(CMD=sum(CMD),
+            S1.ASMR=mean(S1.ASMR),
+            S2.ASMR=mean(S2.ASMR),
+            S3.ASMR=mean(S3.ASMR),
+            S4.ASMR=mean(S4.ASMR),
+            S5.ASMR=mean(S5.ASMR))
+  
+lm(CMD~S2.ASMR,data=X) %>% summary()
+
+plot(S2.ASMR~CMD,data=X)
+text(S2.ASMR ~CMD, labels=Year,data=X, cex=0.9, font=2)
+
+```

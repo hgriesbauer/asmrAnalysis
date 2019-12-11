@@ -16,5 +16,9 @@ dat<-
   mutate(month=as.integer(month)) %>% 
   right_join(asmrData,by=c("stn_name","Year"="year","month"))
 
+<<<<<<< HEAD
 save(dat,file="data/cmdASMR.RData")
+=======
+save(dat,file="data/cdmASMR.RData")
+>>>>>>> b8f850f6a960bfc0a41dbb4e998cd3dba9cebe77
 
