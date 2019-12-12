@@ -2,38 +2,218 @@
 title: "Comparing ASMR to CMD"
 author: "Hardy Griesbauer"
 date: "10/12/2019"
-output: html_document
+output: powerpoint_presentation
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,fig.width = 10,fig.height = 6)
+
+library(tidyverse)
+library(ggpubr)
+library(forestDroughtTool)
 
 # Load dataset
 load("../data/cmdASMR.RData")
 
 ```
 
-### Compare annual CMD to annual ASMR
+### Methods
+- Generate historical monthly ASMR values using asmrCalc() function in forestDroughtTool package for several climate stations
+- Compared to ClimateBC-derived CMD values using linear regression
+- Compared over different time periods (full record vs 1961-1990 normal period) and over seasons
 
-```{r}
-
-# Set station name of interest
-stnName="FORT ST JAMES"
-
-X<-
-  dat %>% 
-  filter(stn_name%in%stnName) %>% 
-  group_by(Year) %>% # group by year to create annual summaries
-  summarise(CMD=sum(CMD),
-            S1.ASMR=mean(S1.ASMR),
-            S2.ASMR=mean(S2.ASMR),
-            S3.ASMR=mean(S3.ASMR),
-            S4.ASMR=mean(S4.ASMR),
-            S5.ASMR=mean(S5.ASMR))
-  
-lm(CMD~S2.ASMR,data=X) %>% summary()
-
-plot(S2.ASMR~CMD,data=X)
-text(S2.ASMR ~CMD, labels=Year,data=X, cex=0.9, font=2)
+### Climate stations and corresponding BGC units
+```{r echo=FALSE}
+dat %>% 
+  filter(stn_name!="LYTTON 2")  %>% # Remove this station because data too sparse
+  filter(stn_name!="SMITHERS")  %>% # Remove this station because data too sparse
+  mutate(bgc=replace(bgc,stn_name=="FORT ST JAMES","SBSdw3")) %>% # not sure why this was missing
+  group_by(stn_name) %>% 
+  summarise(bgc=first(bgc),
+            Start=min(Year),
+            End=max(Year)) %>% 
+  mutate(Length=End-Start+1) %>% 
+  knitr::kable()
 
 ```
+
+### Soil Data used for asmrCalc
+```{r echo=FALSE}
+knitr::kable(soilsData)
+
+```
+
+### Annual CMD vs Annual ASMR
+```{r include=FALSE}
+X<-
+  dat %>% 
+  group_by(stn_name,bgc,Year) %>% # group by station and year to create annual summaries
+  summarise(CMD=sum(CMD),
+            xeric.ASMR=mean(S1.ASMR),
+            subxeric.ASMR=mean(S2.ASMR),
+            submesic.ASMR=mean(S3.ASMR),
+            mesic.ASMR=mean(S4.ASMR),
+            subhygric.ASMR=mean(S5.ASMR))
+
+## Define plotting function
+plotASMR<-function(BGC,site,x.pos=300,y.pos=0.8) {
+  
+  X %>% 
+  filter(bgc==BGC) %>% 
+  ggscatter(x = "CMD", y = paste(site,"ASMR",sep="."), add = "reg.line",
+          add.params = list(color = "red"))+
+          
+ stat_cor(
+   aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")),
+  label.x = x.pos,
+  label.y=y.pos)
+
+}
+
+
+```
+
+### SBSdw3 - Fort St James
+```{r echo=FALSE}
+
+bgcName="SBSdw3"
+
+p1<-plotASMR(BGC=bgcName,site="xeric",x.pos=120,y.pos=0.65)
+p2<-plotASMR(BGC=bgcName,site="subxeric",x.pos=120,y.pos=0.65)
+p3<-plotASMR(BGC=bgcName,site="submesic",x.pos=120,y.pos=0.75)
+p4<-plotASMR(BGC=bgcName,site="mesic",x.pos=120,y.pos=0.75)
+
+ggarrange(p1,p2,p3,p4,nrow=2,ncol=2)
+
+
+```
+
+### PPxh3 - Grand Forks
+
+```{r echo=FALSE}
+
+bgcName="PPxh3"
+
+p1<-plotASMR(BGC=bgcName,site="xeric",x.pos=400,y.pos=0.53)
+p2<-plotASMR(BGC=bgcName,site="subxeric",x.pos=400,y.pos=0.58)
+p3<-plotASMR(BGC=bgcName,site="submesic",x.pos=400,y.pos=0.62)
+p4<-plotASMR(BGC=bgcName,site="mesic",x.pos=400,y.pos=0.68)
+
+ggarrange(p1,p2,p3,p4,nrow=2,ncol=2)
+
+
+```
+
+
+### MSdk2 - Golden
+
+```{r echo=FALSE}
+
+bgcName="MSdk2"
+
+p1<-plotASMR(BGC=bgcName,site="xeric",x.pos=300,y.pos=0.45)
+p2<-plotASMR(BGC=bgcName,site="subxeric",x.pos=300,y.pos=0.5)
+p3<-plotASMR(BGC=bgcName,site="submesic",x.pos=300,y.pos=0.53)
+p4<-plotASMR(BGC=bgcName,site="mesic",x.pos=300,y.pos=0.58)
+
+ggarrange(p1,p2,p3,p4,nrow=2,ncol=2)
+
+
+```
+
+### SBSmk1 - Prince George
+
+```{r echo=FALSE}
+
+bgcName="SBSmk1"
+
+p1<-plotASMR(BGC=bgcName,site="xeric",x.pos=80,y.pos=0.7)
+p2<-plotASMR(BGC=bgcName,site="subxeric",x.pos=80,y.pos=0.8)
+p3<-plotASMR(BGC=bgcName,site="submesic",x.pos=80,y.pos=0.8)
+p4<-plotASMR(BGC=bgcName,site="mesic",x.pos=80,y.pos=0.8)
+
+ggarrange(p1,p2,p3,p4,nrow=2,ncol=2)
+
+```
+
+### IDFxh1 - Lumby
+
+```{r echo=FALSE, fig.cap="Note only 19 years of data"}
+
+bgcName="IDFxh1"
+
+p1<-plotASMR(BGC=bgcName,site="xeric",x.pos=280,y.pos=0.6)
+p2<-plotASMR(BGC=bgcName,site="subxeric",x.pos=280,y.pos=0.65)
+p3<-plotASMR(BGC=bgcName,site="submesic",x.pos=280,y.pos=0.7)
+p4<-plotASMR(BGC=bgcName,site="mesic",x.pos=280,y.pos=0.75)
+
+ggarrange(p1,p2,p3,p4,nrow=2,ncol=2)
+
+```
+
+
+### Thoughts from annual variables
+
+- Correlations between both models are significant in all cases, and strong in 4 of the BGC units shown.  
+- Correlations are highest in hot/dry climates.
+- Linear regression is not totally appropriate here, because ASMR values are bounded by 1.  If we pursue this further, should use beta regression to handle bounded data.
+- Outlier years might be worth examining further
+
+### Growing season ASMR vs growing season CMD
+Next, look at relationship between CMD and ASMR over growing season (May to August)
+```{r echo=FALSE}
+X<-
+  dat %>% 
+  filter(month>=5 & month<=8) %>% # Filter for growing season
+  group_by(stn_name,bgc,Year) %>% # group by station and year to create annual summaries
+  summarise(CMD=sum(CMD),
+            xeric.ASMR=mean(S1.ASMR),
+            subxeric.ASMR=mean(S2.ASMR),
+            submesic.ASMR=mean(S3.ASMR),
+            mesic.ASMR=mean(S4.ASMR),
+            subhygric.ASMR=mean(S5.ASMR))
+
+```
+
+
+### SBSdw3 - Fort St James - growing season
+```{r echo=FALSE}
+
+bgcName="SBSdw3"
+
+p1<-plotASMR(BGC=bgcName,site="xeric",x.pos=120,y.pos=0.3)
+p2<-plotASMR(BGC=bgcName,site="subxeric",x.pos=120,y.pos=0.4)
+p3<-plotASMR(BGC=bgcName,site="submesic",x.pos=120,y.pos=0.5)
+p4<-plotASMR(BGC=bgcName,site="mesic",x.pos=120,y.pos=0.6)
+
+ggarrange(p1,p2,p3,p4,nrow=2,ncol=2)
+
+
+```
+
+### PPxh3 - Grand Forks
+
+```{r echo=FALSE}
+
+bgcName="PPxh3"
+
+p1<-plotASMR(BGC=bgcName,site="xeric",x.pos=260,y.pos=0.25)
+p2<-plotASMR(BGC=bgcName,site="subxeric",x.pos=260,y.pos=0.3)
+p3<-plotASMR(BGC=bgcName,site="submesic",x.pos=260,y.pos=0.3)
+p4<-plotASMR(BGC=bgcName,site="mesic",x.pos=260,y.pos=0.4)
+
+ggarrange(p1,p2,p3,p4,nrow=2,ncol=2)
+
+
+```
+
+### Thoughts from growing season variables
+
+- Correlations are stronger between growing season compared to annual;
+- Correlations are again highest in hot/dry climates;
+- Outlier years might be worth examining further
+
+### Next steps
+- Replicate with more stations?
+- Look at 1961-1990 vs recent periods? Do the models agree over both time periods?
+- If further analysis confirms that both models are in strong agreement for most units, then we can develop a model that predicts the regression slope and coefficient, and apply that to CMD values to estimate ASMR across soil moisture classes.
