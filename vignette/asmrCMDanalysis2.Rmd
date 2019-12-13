@@ -1,0 +1,206 @@
+---
+title: "Comparing ASMR to CMD"
+author: "Hardy Griesbauer"
+date: "10/12/2019"
+output: powerpoint_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width = 10,fig.height = 6)
+
+library(tidyverse)
+library(ggpubr)
+library(forestDroughtTool)
+library(broom)
+
+# Load dataset
+load("../data/cmdASMR.RData")
+
+```
+
+### Methods
+- Generate historical monthly ASMR values using asmrCalc() function in forestDroughtTool package for several climate stations
+- Compared to ClimateBC-derived CMD values using linear regression
+- Compared over different time periods (full record vs 1961-1990 normal period) and over seasons
+
+### Climate stations and corresponding BGC units
+```{r echo=FALSE}
+dat %>% 
+  filter(stn_name!="LYTTON 2")  %>% # Remove this station because data too sparse
+  filter(stn_name!="SMITHERS")  %>% # Remove this station because data too sparse
+  mutate(bgc=replace(bgc,stn_name=="FORT ST JAMES","SBSdw3")) %>% # not sure why this was missing
+  group_by(stn_name) %>% 
+  summarise(bgc=first(bgc),
+            Start=min(Year),
+            End=max(Year)) %>% 
+  mutate(Length=End-Start+1) %>% 
+  knitr::kable()
+
+```
+
+### Soil Data used for asmrCalc
+```{r echo=FALSE}
+knitr::kable(soilsData)
+
+```
+
+### Compare regression slopes between soil moisture regimes
+
+Idea here is to understand how the coefficient between CMD and TACA varies by soil moisture regime within a BGC unit.
+
+I regressed AET/PET against CMD for PPxh3 and SBSdw3.  Kept x- and y-axis limits same between BGC units for comparison.
+
+```{r include=FALSE}
+X<-
+  dat %>% 
+  group_by(stn_name,bgc,Year) %>% # group by station and year to create annual summaries
+  summarise(CMD=sum(CMD),
+            xeric=mean(S1.ASMR),
+            subxeric=mean(S2.ASMR),
+            submesic=mean(S3.ASMR),
+            mesic=mean(S4.ASMR),
+            subhygric=mean(S5.ASMR)) %>% 
+  pivot_longer(cols=5:9,names_to="site",values_to="ASMR") # pivot longer to make plotting easier
+
+## Define plotting function
+plotSlope<-function(BGC) {
+  
+  X %>% 
+  filter(bgc==BGC) %>% 
+  filter(site!="subhygric") %>% 
+  ggscatter(x= "ASMR",y="CMD",color="site",shape="site", 
+            add="reg.line",
+            title=BGC)+
+    xlim(0.5,1)+
+  ylim(100,700)
+  
+}
+
+
+```
+
+### PPxh3
+```{r echo=FALSE, caption="Can see that slopes are essentially same between SMR"}
+plotSlope("PPxh3")
+```
+
+
+### SBSdw3
+```{r echo=FALSE, caption="Can see that slopes are essentially same between SMR"}
+plotSlope("SBSdw3")
+```
+
+### Observations from the previous two slides
+- Slopes are almost identical (but not completely) within a BGC unit, and differ between BGC units.  
+- If we treat slopes as equal within BGC unit and among soil moisture classes, then we can model CMD differences simply using any AET/PET value, bounded by AET/PET range used. Probably a more elegant way to do this, but this approach works for now.
+
+### CMD adjustments suggested for PPxh3, calculated using mean AET/PET ratio of 0.7
+
+
+```{r echo=FALSE}
+
+  BGC="PPxh3"
+
+  fitCMD=c(
+  
+  X %>% 
+    filter(bgc==BGC) %>% 
+    filter(site=="mesic") %>% # remove subhygric site for now
+    lm(CMD~ASMR,data=.) %>% 
+    predict(object=.,newdata=data.frame(ASMR=c(0.7))),
+
+
+  X %>% 
+    filter(bgc==BGC) %>% 
+    filter(site=="submesic") %>% # remove subhygric site for now
+    lm(CMD~ASMR,data=.) %>% 
+    predict(object=.,newdata=data.frame(ASMR=c(0.7))) ,
+
+
+  X %>% 
+    filter(bgc==BGC) %>% 
+    filter(site=="subxeric") %>% # remove subhygric site for now
+    lm(CMD~ASMR,data=.) %>% 
+    predict(object=.,newdata=data.frame(ASMR=c(0.7))),
+   
+
+  X %>% 
+    filter(bgc==BGC) %>% 
+    filter(site=="xeric") %>% # remove subhygric site for now
+    lm(CMD~ASMR,data=.) %>% 
+    predict(object=.,newdata=data.frame(ASMR=c(0.7)))
+  )  
+ 
+cmdAdj<-data.frame(SMR=c("mesic","submesic","subxeric","xeric"),CMD.adjust=
+  cumsum(c(0,abs(diff(fitCMD)))))
+
+rownames(cmdAdj)=cmdAdj$SMR
+
+knitr::kable(cmdAdj)
+
+
+```
+
+
+### CMD adjustments applied to PPxh3 data
+Now, we can adjust CMD values and then plot to see if regression lines align properly.
+
+```{r echo=FALSE}
+
+
+X.adj<-
+  rbind(
+  filter(X,site=="mesic"),
+  filter(X,site=="submesic") %>% mutate(CMD=CMD+cmdAdj["submesic",2]),
+   filter(X,site=="subxeric") %>% mutate(CMD=CMD+cmdAdj["subxeric",2]),
+   filter(X,site=="xeric") %>% mutate(CMD=CMD+cmdAdj["xeric",2])
+) %>% 
+  filter(bgc==BGC) %>% 
+  arrange(Year)
+
+
+
+
+
+```
+
+### CMD adjustments applied to PPxh3 data
+```{r echo=FALSE} 
+
+  X.adj %>% 
+  ggscatter(x= "ASMR",y="CMD",color="site",shape="site", 
+            add="reg.line",
+            title=BGC)
+  
+
+```
+
+
+### CMD adjustments applied to PPxh3 data
+
+Now the regression slopes align properly.  You can see the slight difference in slopes.  
+
+### Next steps
+- Need to double check soils data and confirm this is appropriate
+- Use regression coefficients and slopes for each BGC/site combination to determine the CMD shift required between BGC units.  
+
+```{r include=FALSE}
+# Define function to extract coefficients and intercepts from model
+
+extrCoef<-function(BGC) {
+  
+  X %>% 
+    filter(bgc==BGC) %>% 
+    filter(site!="subhygric") %>% # remove subhygric site for now
+    group_by(site) %>% 
+    do(model=lm(CMD~ASMR,data=.)) %>% 
+    broom::tidy(model)
+ 
+}
+
+# Example
+knitr::kable(extrCoef("PPxh3"))
+
+```
+
+

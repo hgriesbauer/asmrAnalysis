@@ -213,6 +213,19 @@ ggarrange(p1,p2,p3,p4,nrow=2,ncol=2)
 - Correlations are again highest in hot/dry climates;
 - Outlier years might be worth examining further
 
+### Comparing slopes between soil moisture regimes
+PPxh3 - Grand Forks
+
+```{r echo=FALSE}
+
+bgcName="PPxh3"
+
+
+
+
+```
+
+
 ### Next steps
 - Replicate with more stations?
 - Look at 1961-1990 vs recent periods? Do the models agree over both time periods?

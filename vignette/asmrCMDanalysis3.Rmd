@@ -1,0 +1,78 @@
+---
+title: "Comparing ASMR to CMD"
+author: "Hardy Griesbauer"
+date: "10/12/2019"
+output: powerpoint_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width = 10,fig.height = 6)
+
+library(tidyverse)
+library(ggpubr)
+library(forestDroughtTool)
+library(broom)
+
+# Load dataset
+load("../data/cmdASMR.RData")
+
+# Data manipulation
+X<-
+  dat %>% 
+  group_by(stn_name,bgc,Year) %>% # group by station and year to create annual summaries
+  summarise(CMD=sum(CMD),
+            xeric=mean(S1.ASMR),
+            subxeric=mean(S2.ASMR),
+            submesic=mean(S3.ASMR),
+            mesic=mean(S4.ASMR),
+            subhygric=mean(S5.ASMR)) %>% 
+  pivot_longer(cols=5:9,names_to="site",values_to="ASMR") # pivot longer to make plotting easier
+
+```
+
+### Count of years per ASMR class for each site in the PPxh3
+
+```{r echo=FALSE, warning=FALSE}
+
+BGC="PPxh3"
+
+X %>% 
+  filter(bgc==BGC) %>% 
+  mutate(class=cut(ASMR,breaks=c(0,asmrClass$asmrUL),labels = asmrClass$class)) %>% 
+ gghistogram(x="class",fill="site",facet.by="site",stat="count")
+  
+```
+
+### Count of years per ASMR class for each site in the SBSdw3
+```{r echo=FALSE, warning=FALSE}
+
+BGC="SBSdw3"
+
+X %>% 
+  filter(bgc==BGC) %>% 
+  mutate(class=cut(ASMR,breaks=c(0,asmrClass$asmrUL),labels = asmrClass$class)) %>% 
+ gghistogram(x="class",fill="site",facet.by="site",stat="count")
+  
+```
+
+### Looking at ASMR classes
+
+```{r echo=FALSE}
+knitr::kable(asmrClass,caption="AET/PET breakpoints used for ASMR class",align='c')
+```
+
+
+### Alternative: Density plots of AET/PET ratio by site
+```{r echo=FALSE}
+BGC="PPxh3"
+
+X %>% 
+  filter(bgc==BGC) %>% 
+  filter(site!="subhygric") %>% 
+ggdensity(x = "ASMR",
+   add = "mean", rug = TRUE,
+   color = "site",fill="site",
+   title=BGC)
+
+```
+

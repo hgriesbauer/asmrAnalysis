@@ -1,0 +1,49 @@
+---
+title: "Look at length of annual deficit"
+author: "Hardy Griesbauer"
+date: "10/12/2019"
+output: powerpoint_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.width = 10,fig.height = 6)
+
+library(tidyverse)
+library(ggpubr)
+library(forestDroughtTool)
+library(broom)
+
+# Load dataset
+load("../data/cmdASMR.RData")
+
+# Function to convert monthly soil moisture to binary (0=no deficit, 1=deficit)
+defCount<-function(colname) {x=ifelse(colname<1,1,0)}
+
+# Data manipulation
+X<-
+  dat %>% 
+  mutate(CMD=ifelse(CMD==0,0,1)) %>% 
+  mutate_at(vars(ends_with(".ASMR")),defCount) %>% 
+  pivot_longer(cols=5:10,names_to="site",values_to="ASMR") %>%  # pivot longer to make plotting easier
+  group_by(stn_name,bgc,Year,site) %>% 
+  summarise(month.deficit=sum(ASMR)) %>% 
+  mutate(site=factor(site,labels=c("CMD","xeric","subxeric","submesic","mesic","subhygric")))
+
+```
+
+
+# Distribution of months within a year that have soil moisture deficit 
+```{r echo=FALSE, warning=FALSE}
+BGC="PPxh3"
+
+
+X %>% 
+  filter(bgc==BGC) %>% 
+  gghistogram(x="month.deficit",fill="site",facet.by="site",stat="count",
+              xlab="Number of months with moisture deficit",
+              ylab="Count",add_density = F,
+              title=BGC) %>% 
+  ggpar(.,xticks.by = 1)
+
+
+```
